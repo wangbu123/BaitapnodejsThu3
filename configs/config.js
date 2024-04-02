@@ -4,15 +4,15 @@ module.exports = {
     hostName: 'localhost:3000',
     Host: "sandbox.smtp.mailtrap.io",
     Port: 2525,
-    Username: "3eb602349b914a",
-    Password: "0aa88f5c11d107"
+    Username: "754d4824899b70",
+    Password: "680754cbf2a4c8"
 }
 
 // var transport = nodemailer.createTransport({
 //     host: "sandbox.smtp.mailtrap.io",
 //     port: 2525,
 //     auth: {
-//       user: "3eb602349b914a",
-//       pass: "0aa88f5c11d107"
+//         user: "754d4824899b70",
+//         pass: "680754cbf2a4c8"
 //     }
-//   });
+// });
