@@ -21,19 +21,21 @@ var userSchema = new mongoose.Schema({
     email: String,
     resetPasswordToken: String,
     resetPasswordExp: String
-}, { timestamps: true })
+}, { timestamps: true });
 
-userSchema.pre('save', function () {
+userSchema.pre('save', function (next) {
     if (this.isModified('password')) {
         this.password = bcrypt.hashSync(this.password, 10);
     }
-})
+    next();
+});
+
 userSchema.methods.genTokenResetPassword = function () {
     let token = crypto.randomBytes(30).toString('hex');
-    this.resetPasswordToken = token
+    this.resetPasswordToken = token;
     this.resetPasswordExp = Date.now() + 10 * 60 * 1000;
     return token;
-}
+};
 
 userSchema.methods.getJWT = function () {
     var token = jsonwebtoken.sign({ id: this._id },
@@ -41,7 +43,11 @@ userSchema.methods.getJWT = function () {
         expiresIn: config.EXPIRE_JWT
     });
     return token;
-}
+};
+
+userSchema.methods.comparePassword = function (password) {
+    return bcrypt.compareSync(password, this.password);
+};
 
 userSchema.statics.GetCre = async function (username, password) {
     if (!username || !password) {
@@ -51,11 +57,11 @@ userSchema.statics.GetCre = async function (username, password) {
     if (!user) {
         return { error: "user hoac password sai" };
     }
-    if (bcrypt.compareSync(password, user.password)) {
+    if (user.comparePassword(password)) {
         return user;
     } else {
         return { error: "user hoac password sai" };
     }
-}
+};
 
-module.exports = new mongoose.model('user', userSchema);
+module.exports = mongoose.model('User', userSchema);

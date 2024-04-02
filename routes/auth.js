@@ -30,25 +30,36 @@ router.post('/logout', checkLogin, function (req, res, next) {
 
 
 router.post('/login', async function (req, res, next) {
-  var result = await userModel.GetCre(req.body.username, req.body.password);
-  console.log(result);
-  if (result.error) {
-    ResHelper.RenderRes(res, false, result.error);
-  } else {
-    res.status(200)
-      .cookie('token', result.getJWT(), {
-        expires: new Date(Date.now + 24 * 3600 * 1000),
-        httpOnly: true
-      })
-      .send({
-        success: true,
-        data: result.getJWT()
-      }
-      );
-    //ResHelper.RenderRes(res, true, result.getJWT());
+  try {
+      const { username, password } = req.body;
 
+      // Kiểm tra xem username và password đã được cung cấp chưa
+      if (!username || !password) {
+          throw new Error("Vui lòng nhập đầy đủ tên người dùng và mật khẩu.");
+      }
+
+      // Lấy thông tin user từ database
+      const user = await userModel.GetCre(username, password);
+
+      // Kiểm tra xem có lỗi không
+      if (user.error) {
+          throw new Error(user.error);
+      }
+
+      // Tạo JWT token và trả về cho client
+      const token = user.getJWT();
+      res.cookie('token', token, {
+          expires: new Date(Date.now() + 24 * 3600 * 1000), // Token hết hạn sau 1 ngày
+          httpOnly: true
+      }).send({
+          success: true,
+          token: token
+      });
+  } catch (error) {
+      ResHelper.RenderRes(res, false, error.message);
   }
 });
+
 router.post('/register', userValidator.checkChain(), async function (req, res, next) {
   var result = validationResult(req);
   if (result.errors.length > 0) {
@@ -77,7 +88,7 @@ router.post("/forgotPassword", async function (req, res, next) {
     let token = user.genTokenResetPassword();
     await user.save()
     try {
-      let url = `https://${config.hostName}/api/v1/auth/ResetPassword/${token}`;
+      let url = `http://${config.hostName}/api/v1/auth/ResetPassword/${token}`;
       let message = `click zo url de reset passs: ${url}`
       sendmail(message, user.email)
       ResHelper.RenderRes(res, true, "Thanh cong");
@@ -93,7 +104,7 @@ router.post("/forgotPassword", async function (req, res, next) {
 
 })
 
-router.post("/ResetPassword/:token", async function (req, res, next) {
+router.post("/resetPassword/:token", async function (req, res, next) {
   var user = await userModel.findOne({
     resetPasswordToken: req.params.token
   })
@@ -111,6 +122,35 @@ router.post("/ResetPassword/:token", async function (req, res, next) {
     ResHelper.RenderRes(res, false, "URL khong hop le");
   }
 
+})
+
+router.put('/change-password', checkLogin, userValidator.checkChangePassword(), async function (req, res, next) {
+  try {
+      const { oldPassword, newPassword } = req.body;
+
+      // Lấy thông tin người dùng từ middleware checkLogin
+      const user = req.user;
+
+      // Kiểm tra xem mật khẩu cũ có chính xác không
+      const isPasswordValid = await user.comparePassword(oldPassword);
+      if (!isPasswordValid) {
+          throw new Error("Mật khẩu cũ không chính xác.");
+      }
+
+      // Kiểm tra xem mật khẩu mới có đủ mạnh không
+      const result = validationResult(req);
+      if (!result.isEmpty()) {
+          return ResHelper.RenderRes(res, false, result.array());
+      }
+
+      // Cập nhật mật khẩu mới cho người dùng
+      user.password = newPassword;
+      await user.save();
+
+      ResHelper.RenderRes(res, true, 'Mật khẩu đã được thay đổi thành công.');
+  } catch (error) {
+      ResHelper.RenderRes(res, false, error.message);
+  }
 })
 
 
